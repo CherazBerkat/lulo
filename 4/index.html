@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Enchanted Garden</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: linear-gradient(
+          180deg,
+          #0a0e27 0%,
+          #1a1a2e 50%,
+          #16213e 100%
+        );
+        overflow: hidden;
+        font-family: "Segoe UI", sans-serif;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+      .hint {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 14px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        pointer-events: none;
+        animation: fadeInOut 4s ease-in-out infinite;
+      }
+      .message {
+        position: absolute;
+        color: white;
+        font-size: 24px;
+        font-weight: 600;
+        pointer-events: none;
+        text-shadow: 0 0 15px rgba(0, 0, 0, 0.7), 0 0 30px currentColor;
+        animation: floatUp 2.5s ease-out forwards;
+        opacity: 0;
+        white-space: nowrap;
+      }
+      @keyframes fadeInOut {
+        0%,
+        100% {
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 0.8;
+        }
+      }
+      @keyframes floatUp {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, 0) scale(0.8);
+        }
+        10% {
+          opacity: 1;
+          transform: translate(-50%, -10px) scale(1);
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -80px) scale(0.9);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div class="hint">Click to plant magical flowers ✦</div>
+    <script>
+      const c = document.getElementById("c"),
+        ctx = c.getContext("2d");
+      let flowers = [];
+      let particles = [];
+      let time = 0;
+
+      function resize() {
+        c.width = innerWidth;
+        c.height = innerHeight;
+      }
+      addEventListener("resize", resize);
+      resize();
+
+      class Particle {
+        constructor(x, y, color) {
+          this.x = x;
+          this.y = y;
+          this.vx = (Math.random() - 0.5) * 2;
+          this.vy = -Math.random() * 3 - 1;
+          this.life = 1;
+          this.decay = 0.01 + Math.random() * 0.02;
+          this.size = Math.random() * 3 + 1;
+          this.color = color;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.vy += 0.05;
+          this.life -= this.decay;
+        }
+        draw() {
+          if (this.life <= 0) return;
+          ctx.save();
+          ctx.globalAlpha = this.life * 0.8;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Sparkle effect
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 0.5;
+          ctx.globalAlpha = this.life * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(this.x - this.size * 2, this.y);
+          ctx.lineTo(this.x + this.size * 2, this.y);
+          ctx.moveTo(this.x, this.y - this.size * 2);
+          ctx.lineTo(this.x, this.y + this.size * 2);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
+
+      class Flower {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.growth = 0;
+          this.stemHeight = 200 + Math.random() * 250;
+          this.stemWave = Math.random() * 0.3;
+          this.petalCount = 6 + Math.floor(Math.random() * 3);
+          this.centerSize = 15 + Math.random() * 15;
+          this.petalSize = 50 + Math.random() * 60;
+          this.hue = Math.random() * 360;
+          this.petalHue = (this.hue + 20 + Math.random() * 40) % 360;
+          this.leafCount = 4 + Math.floor(Math.random() * 4);
+          this.rotation = Math.random() * Math.PI * 2;
+          this.swayPhase = Math.random() * Math.PI * 2;
+          this.swaySpeed = 0.002 + Math.random() * 0.003;
+          this.birthTime = time;
+          this.maturity = 0;
+          this.maxMaturity = 1;
+
+          // Flower types with more variety
+          const types = [
+            "rose",
+            "lotus",
+            "dahlia",
+            "peony",
+            "cosmos",
+            "magnolia",
+          ];
+          this.type = types[Math.floor(Math.random() * types.length)];
+
+          // Petal layers for depth
+          this.layers = this.type === "rose" || this.type === "peony" ? 3 : 2;
+        }
+
+        update() {
+          if (this.growth < 1) {
+            this.growth += 0.008;
+          }
+          if (this.maturity < this.maxMaturity) {
+            this.maturity += 0.005;
+          }
+        }
+
+        draw() {
+          ctx.save();
+
+          const sway =
+            Math.sin(time * this.swaySpeed + this.swayPhase) *
+            15 *
+            this.maturity;
+
+          const stemGrowth = Math.min(this.growth * 2, 1);
+          this.drawStem(sway, stemGrowth);
+
+          if (this.growth > 0.3) {
+            this.drawLeaves(sway, stemGrowth);
+          }
+
+          if (this.growth > 0.6) {
+            const flowerGrowth = (this.growth - 0.6) / 0.4;
+            this.drawFlowerHead(sway, flowerGrowth);
+          }
+
+          ctx.restore();
+        }
+
+        drawStem(sway, growth) {
+          const segments = 25;
+          const stemY = this.y;
+          const stemEndY = this.y - this.stemHeight * growth;
+
+          // Gradient stem
+          const gradient = ctx.createLinearGradient(
+            this.x,
+            stemY,
+            this.x,
+            stemEndY
+          );
+          gradient.addColorStop(0, `hsl(${this.hue - 60}, 65%, 35%)`);
+          gradient.addColorStop(0.5, `hsl(${this.hue - 60}, 70%, 40%)`);
+          gradient.addColorStop(1, `hsl(${this.hue - 60}, 60%, 45%)`);
+
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 6 + this.stemHeight / 30;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          // Smooth bezier curve
+          ctx.beginPath();
+          ctx.moveTo(this.x, stemY);
+
+          for (let i = 1; i <= segments; i++) {
+            const t = i / segments;
+            const y = stemY - (stemY - stemEndY) * t;
+            const wave =
+              Math.sin(t * Math.PI * 3 + this.stemWave) *
+              this.stemHeight *
+              0.08;
+            const currentSway = sway * t * t; // Quadratic for more natural bend
+            ctx.lineTo(this.x + wave + currentSway, y);
+          }
+          ctx.stroke();
+
+          // Stem highlight
+          ctx.strokeStyle = `hsla(${this.hue - 60}, 80%, 60%, 0.3)`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+
+        drawLeaves(sway, growth) {
+          const leafPositions = [];
+          for (let i = 0; i < this.leafCount; i++) {
+            const t = 0.25 + (i / this.leafCount) * 0.55;
+            leafPositions.push(t);
+          }
+
+          leafPositions.forEach((t, index) => {
+            const y = this.y - this.stemHeight * growth * t;
+            const wave =
+              Math.sin(t * Math.PI * 3 + this.stemWave) *
+              this.stemHeight *
+              0.08;
+            const currentSway = sway * t * t;
+            const x = this.x + wave + currentSway;
+
+            const side = index % 2 === 0 ? 1 : -1;
+            const leafSize = (35 + Math.random() * 30) * this.maturity;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(side * (Math.PI / 4));
+
+            // Elegant leaf with gradient
+            const leafGrad = ctx.createLinearGradient(
+              0,
+              -leafSize * 0.2,
+              side * leafSize,
+              0
+            );
+            leafGrad.addColorStop(0, `hsl(${this.hue - 40}, 75%, 40%)`);
+            leafGrad.addColorStop(0.5, `hsl(${this.hue - 40}, 70%, 48%)`);
+            leafGrad.addColorStop(1, `hsl(${this.hue - 40}, 65%, 35%)`);
+
+            ctx.fillStyle = leafGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+
+            // Smooth leaf curves
+            ctx.bezierCurveTo(
+              side * leafSize * 0.3,
+              -leafSize * 0.4,
+              side * leafSize * 0.8,
+              -leafSize * 0.3,
+              side * leafSize * 1.1,
+              -leafSize * 0.05
+            );
+            ctx.bezierCurveTo(
+              side * leafSize * 0.9,
+              leafSize * 0.2,
+              side * leafSize * 0.4,
+              leafSize * 0.3,
+              0,
+              0
+            );
+            ctx.fill();
+
+            // Leaf veins
+            ctx.strokeStyle = `hsla(${this.hue - 40}, 60%, 30%, 0.6)`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(
+              side * leafSize * 0.5,
+              0,
+              side * leafSize * 0.9,
+              -leafSize * 0.1
+            );
+            ctx.stroke();
+
+            // Side veins
+            for (let v = 0; v < 3; v++) {
+              const vt = 0.3 + v * 0.25;
+              ctx.beginPath();
+              ctx.moveTo(side * leafSize * vt, -leafSize * 0.1 * vt);
+              ctx.lineTo(side * leafSize * vt * 0.8, leafSize * 0.15);
+              ctx.stroke();
+            }
+
+            ctx.restore();
+          });
+        }
+
+        drawFlowerHead(sway, growth) {
+          const headY = this.y - this.stemHeight;
+          const wave =
+            Math.sin(Math.PI * 3 + this.stemWave) * this.stemHeight * 0.08;
+          const x = this.x + wave + sway;
+
+          ctx.save();
+          ctx.translate(x, headY);
+          ctx.rotate(
+            this.rotation + Math.sin(time * 0.001 + this.swayPhase) * 0.08
+          );
+          ctx.scale(growth, growth);
+
+          // Draw flower based on type
+          switch (this.type) {
+            case "rose":
+              this.drawRose();
+              break;
+            case "lotus":
+              this.drawLotus();
+              break;
+            case "dahlia":
+              this.drawDahlia();
+              break;
+            case "peony":
+              this.drawPeony();
+              break;
+            case "cosmos":
+              this.drawCosmos();
+              break;
+            case "magnolia":
+              this.drawMagnolia();
+              break;
+          }
+
+          ctx.restore();
+        }
+
+        drawRose() {
+          const pulse = 1 + Math.sin(time * 0.003 + this.birthTime) * 0.08;
+
+          // Multiple petal layers
+          for (let layer = 0; layer < 3; layer++) {
+            const layerSize = (1 - layer * 0.25) * pulse;
+            const layerPetals = this.petalCount + layer * 2;
+            const layerRotation = (layer * Math.PI) / layerPetals;
+
+            for (let i = 0; i < layerPetals; i++) {
+              const angle = ((Math.PI * 2) / layerPetals) * i + layerRotation;
+              ctx.save();
+              ctx.rotate(angle);
+
+              const petalGrad = ctx.createRadialGradient(
+                0,
+                -this.petalSize * 0.5 * layerSize,
+                0,
+                0,
+                -this.petalSize * 0.5 * layerSize,
+                this.petalSize * layerSize
+              );
+
+              const lightness = 75 - layer * 8;
+              petalGrad.addColorStop(
+                0,
+                `hsl(${this.petalHue}, 95%, ${lightness}%)`
+              );
+              petalGrad.addColorStop(
+                0.6,
+                `hsl(${this.petalHue}, 85%, ${lightness - 12}%)`
+              );
+              petalGrad.addColorStop(
+                1,
+                `hsl(${this.petalHue}, 75%, ${lightness - 20}%)`
+              );
+
+              ctx.fillStyle = petalGrad;
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+
+              // Heart-shaped petal
+              ctx.bezierCurveTo(
+                this.petalSize * 0.4 * layerSize,
+                -this.petalSize * 0.3 * layerSize,
+                this.petalSize * 0.5 * layerSize,
+                -this.petalSize * 0.9 * layerSize,
+                0,
+                -this.petalSize * 1.2 * layerSize
+              );
+              ctx.bezierCurveTo(
+                -this.petalSize * 0.5 * layerSize,
+                -this.petalSize * 0.9 * layerSize,
+                -this.petalSize * 0.4 * layerSize,
+                -this.petalSize * 0.3 * layerSize,
+                0,
+                0
+              );
+              ctx.fill();
+
+              // Petal edge highlight
+              ctx.strokeStyle = `hsla(${this.petalHue + 10}, 100%, 85%, 0.4)`;
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+
+              ctx.restore();
+            }
+          }
+
+          this.drawCenter();
+        }
+
+        drawLotus() {
+          const pulse = 1 + Math.sin(time * 0.003 + this.birthTime) * 0.08;
+
+          // Outer petals
+          for (let i = 0; i < this.petalCount; i++) {
+            const angle = ((Math.PI * 2) / this.petalCount) * i;
+            ctx.save();
+            ctx.rotate(angle);
+
+            const petalGrad = ctx.createLinearGradient(
+              0,
+              0,
+              0,
+              -this.petalSize * 1.5 * pulse
+            );
+            petalGrad.addColorStop(0, `hsl(${this.petalHue}, 90%, 85%)`);
+            petalGrad.addColorStop(0.4, `hsl(${this.petalHue}, 85%, 72%)`);
+            petalGrad.addColorStop(1, `hsl(${this.petalHue + 5}, 80%, 65%)`);
+
+            ctx.fillStyle = petalGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+
+            // Pointed lotus petal
+            ctx.bezierCurveTo(
+              this.petalSize * 0.5 * pulse,
+              -this.petalSize * 0.5 * pulse,
+              this.petalSize * 0.3 * pulse,
+              -this.petalSize * 1.2 * pulse,
+              0,
+              -this.petalSize * 1.6 * pulse
+            );
+            ctx.bezierCurveTo(
+              -this.petalSize * 0.3 * pulse,
+              -this.petalSize * 1.2 * pulse,
+              -this.petalSize * 0.5 * pulse,
+              -this.petalSize * 0.5 * pulse,
+              0,
+              0
+            );
+            ctx.fill();
+
+            // Petal veins
+            ctx.strokeStyle = `hsla(${this.petalHue}, 70%, 60%, 0.4)`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -this.petalSize * 1.4 * pulse);
+            ctx.stroke();
+
+            ctx.restore();
+          }
+
+          // Inner petals
+          for (let i = 0; i < this.petalCount - 2; i++) {
+            const angle =
+              ((Math.PI * 2) / (this.petalCount - 2)) * i +
+              Math.PI / this.petalCount;
+            ctx.save();
+            ctx.rotate(angle);
+
+            ctx.fillStyle = `hsl(${this.petalHue + 10}, 92%, 80%)`;
+            ctx.beginPath();
+            ctx.ellipse(
+              0,
+              -this.petalSize * 0.6 * pulse,
+              this.petalSize * 0.3 * pulse,
+              this.petalSize * 0.7 * pulse,
+              0,
+              0,
+              Math.PI * 2
+            );
+            ctx.fill();
+
+            ctx.restore();
+          }
+
+          this.drawCenter();
+        }
+
+        drawDahlia() {
+          const pulse = 1 + Math.sin(time * 0.003 + this.birthTime) * 0.08;
+          const totalPetals = this.petalCount * 3;
+
+          for (let layer = 0; layer < 3; layer++) {
+            const layerPetals = totalPetals - layer * 4;
+            const layerSize = (1.1 - layer * 0.2) * pulse;
+            const rotation = layer * 0.3;
+
+            for (let i = 0; i < layerPetals; i++) {
+              const angle = ((Math.PI * 2) / layerPetals) * i + rotation;
+              ctx.save();
+              ctx.rotate(angle);
+
+              const lightness = 70 - layer * 5;
+              const petalGrad = ctx.createLinearGradient(
+                0,
+                0,
+                0,
+                -this.petalSize * layerSize
+              );
+              petalGrad.addColorStop(
+                0,
+                `hsl(${this.petalHue}, 90%, ${lightness + 10}%)`
+              );
+              petalGrad.addColorStop(
+                1,
+                `hsl(${this.petalHue}, 80%, ${lightness - 5}%)`
+              );
+
+              ctx.fillStyle = petalGrad;
+              ctx.beginPath();
+
+              // Thin, pointed dahlia petals
+              const width = this.petalSize * 0.15 * layerSize;
+              const length = this.petalSize * 0.9 * layerSize;
+
+              ctx.moveTo(-width, 0);
+              ctx.quadraticCurveTo(-width * 0.5, -length * 0.5, 0, -length);
+              ctx.quadraticCurveTo(width * 0.5, -length * 0.5, width, 0);
+              ctx.closePath();
+              ctx.fill();
+
+              ctx.restore();
+            }
+          }
+
+          this.drawCenter();
+        }
+
+        drawPeony() {
+          const pulse = 1 + Math.sin(time * 0.003 + this.birthTime) * 0.08;
+
+          // Many ruffled layers
+          for (let layer = 0; layer < 4; layer++) {
+            const layerSize = (1.2 - layer * 0.2) * pulse;
+            const layerPetals = 8 + layer * 2;
+            const layerRotation = layer * 0.4;
+
+            for (let i = 0; i < layerPetals; i++) {
+              const angle = ((Math.PI * 2) / layerPetals) * i + layerRotation;
+              ctx.save();
+              ctx.rotate(angle);
+
+              const lightness = 78 - layer * 6;
+              ctx.fillStyle = `hsl(${this.petalHue}, 88%, ${lightness}%)`;
+
+              ctx.beginPath();
+
+              // Ruffled peony petals
+              const size = this.petalSize * 0.6 * layerSize;
+              ctx.moveTo(0, 0);
+
+              for (let p = 0; p <= 8; p++) {
+                const t = p / 8;
+                const ruffle = Math.sin(t * Math.PI * 4) * size * 0.15;
+                const px = Math.sin(t * Math.PI) * size * 0.7 + ruffle;
+                const py = -t * size * 1.4;
+
+                if (p === 0) ctx.lineTo(px, py);
+                else ctx.lineTo(px, py);
+              }
+
+              ctx.closePath();
+              ctx.fill();
+
+              ctx.strokeStyle = `hsla(${this.petalHue}, 80%, ${
+                lightness - 10
+              }%, 0.3)`;
+              ctx.lineWidth = 1;
+              ctx.stroke();
+
+              ctx.restore();
+            }
+          }
+
+          this.drawCenter();
+        }
+
+        drawCosmos() {
+          const pulse = 1 + Math.sin(time * 0.003 + this.birthTime) * 0.08;
+
+          for (let i = 0; i < 8; i++) {
+            const angle = ((Math.PI * 2) / 8) * i;
+            ctx.save();
+            ctx.rotate(angle);
+
+            // Simple, elegant cosmos petals
+            const petalGrad = ctx.createRadialGradient(
+              0,
+              -this.petalSize * 0.6 * pulse,
+              0,
+              0,
+              -this.petalSize * 0.6 * pulse,
+              this.petalSize * pulse
+            );
+            petalGrad.addColorStop(0, `hsl(${this.petalHue}, 92%, 82%)`);
+            petalGrad.addColorStop(0.7, `hsl(${this.petalHue}, 85%, 68%)`);
+            petalGrad.addColorStop(1, `hsl(${this.petalHue}, 75%, 58%)`);
+
+            ctx.fillStyle = petalGrad;
+            ctx.beginPath();
+
+            // Rounded rectangular petals with notch
+            ctx.moveTo(0, 0);
+            ctx.lineTo(
+              -this.petalSize * 0.4 * pulse,
+              -this.petalSize * 0.3 * pulse
+            );
+            ctx.quadraticCurveTo(
+              -this.petalSize * 0.35 * pulse,
+              -this.petalSize * 0.9 * pulse,
+              0,
+              -this.petalSize * 1.1 * pulse
+            );
+
+            // Small notch at tip
+            ctx.lineTo(0, -this.petalSize * 1.15 * pulse);
+            ctx.lineTo(0, -this.petalSize * 1.1 * pulse);
+
+            ctx.quadraticCurveTo(
+              this.petalSize * 0.35 * pulse,
+              -this.petalSize * 0.9 * pulse,
+              this.petalSize * 0.4 * pulse,
+              -this.petalSize * 0.3 * pulse
+            );
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+          }
+
+          this.drawCenter();
+        }
+
+        drawMagnolia() {
+          const pulse = 1 + Math.sin(time * 0.003 + this.birthTime) * 0.08;
+
+          // Large, elegant magnolia petals
+          for (let i = 0; i < 6; i++) {
+            const angle = ((Math.PI * 2) / 6) * i;
+            ctx.save();
+            ctx.rotate(angle);
+
+            const petalGrad = ctx.createLinearGradient(
+              0,
+              0,
+              0,
+              -this.petalSize * 1.8 * pulse
+            );
+            petalGrad.addColorStop(0, `hsl(${this.petalHue}, 85%, 92%)`);
+            petalGrad.addColorStop(0.3, `hsl(${this.petalHue}, 80%, 88%)`);
+            petalGrad.addColorStop(0.7, `hsl(${this.petalHue}, 75%, 80%)`);
+            petalGrad.addColorStop(1, `hsl(${this.petalHue}, 70%, 75%)`);
+
+            ctx.fillStyle = petalGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+
+            // Large, teardrop-shaped petals
+            ctx.bezierCurveTo(
+              this.petalSize * 0.55 * pulse,
+              -this.petalSize * 0.3 * pulse,
+              this.petalSize * 0.5 * pulse,
+              -this.petalSize * 1.3 * pulse,
+              0,
+              -this.petalSize * 1.8 * pulse
+            );
+            ctx.bezierCurveTo(
+              -this.petalSize * 0.5 * pulse,
+              -this.petalSize * 1.3 * pulse,
+              -this.petalSize * 0.55 * pulse,
+              -this.petalSize * 0.3 * pulse,
+              0,
+              0
+            );
+            ctx.fill();
+
+            // Subtle texture lines
+            ctx.strokeStyle = `hsla(${this.petalHue}, 60%, 70%, 0.2)`;
+            ctx.lineWidth = 0.5;
+            for (let l = 0; l < 5; l++) {
+              const lt = 0.2 + l * 0.15;
+              ctx.beginPath();
+              ctx.moveTo(
+                -this.petalSize * 0.3 * pulse * (1 - lt),
+                -this.petalSize * lt * 1.6 * pulse
+              );
+              ctx.lineTo(
+                this.petalSize * 0.3 * pulse * (1 - lt),
+                -this.petalSize * lt * 1.6 * pulse
+              );
+              ctx.stroke();
+            }
+
+            ctx.restore();
+          }
+
+          this.drawCenter();
+        }
+
+        drawCenter() {
+          const centerPulse =
+            1 + Math.sin(time * 0.003 + this.birthTime) * 0.12;
+
+          // Outer center with gradient
+          const centerGrad = ctx.createRadialGradient(
+            0,
+            0,
+            0,
+            0,
+            0,
+            this.centerSize * centerPulse * 1.5
+          );
+          centerGrad.addColorStop(0, `hsl(${this.hue + 200}, 95%, 65%)`);
+          centerGrad.addColorStop(0.6, `hsl(${this.hue + 190}, 85%, 55%)`);
+          centerGrad.addColorStop(1, `hsl(${this.hue + 180}, 75%, 45%)`);
+
+          ctx.fillStyle = centerGrad;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.centerSize * centerPulse * 1.3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Inner center
+          ctx.fillStyle = `hsl(${this.hue + 210}, 90%, 50%)`;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.centerSize * centerPulse * 0.9, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Detailed stamen ring
+          const stamenCount = 16;
+          for (let i = 0; i < stamenCount; i++) {
+            const angle = ((Math.PI * 2) / stamenCount) * i + time * 0.001;
+            const dist = this.centerSize * 0.7 * centerPulse;
+
+            ctx.fillStyle = `hsl(${this.hue + 180}, 80%, 40%)`;
+            ctx.beginPath();
+            ctx.arc(
+              Math.cos(angle) * dist,
+              Math.sin(angle) * dist,
+              2,
+              0,
+              Math.PI * 2
+            );
+            ctx.fill();
+
+            // Stamen tips
+            ctx.fillStyle = `hsl(${this.hue + 160}, 90%, 70%)`;
+            ctx.beginPath();
+            ctx.arc(
+              Math.cos(angle) * dist,
+              Math.sin(angle) * dist,
+              1,
+              0,
+              Math.PI * 2
+            );
+            ctx.fill();
+          }
+
+          // Center sparkle
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.beginPath();
+          ctx.arc(0, 0, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      c.addEventListener("click", (e) => {
+        const rect = c.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        flowers.push(new Flower(x, y));
+
+        const hue = Math.random() * 360;
+        for (let i = 0; i < 30; i++) {
+          particles.push(new Particle(x, y, `hsl(${hue}, 80%, 70%)`));
+        }
+
+        // Create floating message
+        const messages = [
+          "✦ Magic blooms for you, my Lulo✦",
+          "❀ Your kindness makes things grow ❀",
+          "❁ Every petal loves you back ❁",
+          "✾ A little love, a little light ✾",
+          "✾ Your heart knows how to grow things ✾",
+        ];
+
+        const message = document.createElement("div");
+        message.className = "message";
+        message.textContent =
+          messages[Math.floor(Math.random() * messages.length)];
+        message.style.left = e.clientX + "px";
+        message.style.top = e.clientY + "px";
+        message.style.color = `hsl(${hue}, 90%, 75%)`;
+        document.body.appendChild(message);
+
+        setTimeout(() => message.remove(), 2500);
+      });
+
+      function loop() {
+        time++;
+
+        ctx.fillStyle = "rgba(10, 14, 39, 0.08)";
+        ctx.fillRect(0, 0, c.width, c.height);
+
+        particles = particles.filter((p) => p.life > 0);
+        particles.forEach((p) => {
+          p.update();
+          p.draw();
+        });
+
+        flowers.forEach((f) => {
+          f.update();
+          f.draw();
+        });
+
+        requestAnimationFrame(loop);
+      }
+      loop();
+    </script>
+  </body>
+</html>
