@@ -1,4 +1,3 @@
-
 "use strict";
 
 !(function () {
@@ -18,8 +17,8 @@
             height: s,
             wireframes: !1,
             background: "transparent",
-            pixelRatio: 1
-          }
+            pixelRatio: 1,
+          },
         })),
         (i = u.create()),
         u.run(i, n),
@@ -56,8 +55,8 @@
                   render: {
                     fillStyle: "transparent",
                     strokeStyle: "transparent",
-                    lineWidth: 1
-                  }
+                    lineWidth: 1,
+                  },
                 },
                 !0
               );
@@ -81,8 +80,8 @@
                 frictionAir: 0,
                 mass: 20,
                 render: {
-                  lineWidth: 2
-                }
+                  lineWidth: 2,
+                },
               },
               !0
             )),
@@ -104,7 +103,7 @@
             M.setAngle(t, Math.round(360 * Math.random()), !1),
             M.setVelocity(t, {
               x: f.random(-5, 5),
-              y: f.random(-5, -1)
+              y: f.random(-5, -1),
             }),
             h.add(e, t);
         };
@@ -121,21 +120,21 @@
           constraint: {
             stiffness: 0.2,
             render: {
-              visible: !1
-            }
-          }
+              visible: !1,
+            },
+          },
         });
       h.add(e, x),
         (r.mouse = k),
         d.lookAt(r, {
           min: {
             x: 0,
-            y: 0
+            y: 0,
           },
           max: {
             x: l,
-            y: s
-          }
+            y: s,
+          },
         }),
         d.run(r);
     })();
@@ -166,7 +165,7 @@
       "hotpink",
       "lightpink",
       "magenta",
-      "orchid"
+      "orchid",
     ],
     S = ["mediumvioletred", "crimson", "salmon"];
   (window.onload = () => {
@@ -186,12 +185,12 @@
               render: {
                 fillStyle: t,
                 strokeStyle: t,
-                lineWidth: 0
-              }
+                lineWidth: 0,
+              },
             });
             M.setVelocity(n, {
               x: f.random(-1, 1),
-              y: f.random(-1, 1)
+              y: f.random(-1, 1),
             }),
               h.add(e, n);
           })(),

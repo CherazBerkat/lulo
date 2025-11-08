@@ -217,34 +217,18 @@
         z-index: 10;
         opacity: 0;
         transition: opacity 2s ease;
+        pointer-events: all;
       }
 
       #viewer.active {
         opacity: 1;
       }
 
-      #viewer.clickable {
-        pointer-events: all;
-        cursor: pointer;
-      }
-
-      #viewer.interactive {
-        pointer-events: all;
-      }
-
       #viewer iframe {
         width: 100%;
         height: 100%;
         border: none;
-        pointer-events: none;
-      }
-
-      #viewer.interactive iframe {
         pointer-events: all;
-      }
-
-      #viewer.clickable iframe {
-        pointer-events: none;
       }
 
       /* Overlay system */
@@ -462,24 +446,38 @@
         font-weight: 300;
         letter-spacing: 0.2em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.5);
+        color: rgba(255, 255, 255, 0.9);
         text-align: center;
         opacity: 0;
         transition: opacity 1s ease;
         pointer-events: none;
-        text-shadow: 0 0 20px rgba(244, 178, 210, 0.4);
-        padding: 0 2rem;
+        text-shadow: 0 0 20px rgba(244, 178, 210, 0.8),
+          0 0 40px rgba(244, 178, 210, 0.5);
+        padding: 1rem 2rem;
+        background: rgba(244, 178, 210, 0.1);
+        border: 1px solid rgba(244, 178, 210, 0.3);
+        border-radius: 50px;
+        backdrop-filter: blur(10px);
+        cursor: pointer;
       }
 
       .nav-hint.show {
         opacity: 1;
+        pointer-events: all;
         animation: gentle-pulse 3s ease-in-out infinite;
+      }
+
+      .nav-hint:hover {
+        background: rgba(244, 178, 210, 0.2);
+        border-color: rgba(244, 178, 210, 0.5);
+        transform: translateX(-50%) translateY(-3px);
+        box-shadow: 0 8px 30px rgba(244, 178, 210, 0.4);
       }
 
       @keyframes gentle-pulse {
         0%,
         100% {
-          opacity: 0.5;
+          opacity: 0.8;
           transform: translateX(-50%) translateY(0);
         }
         50% {
@@ -765,20 +763,20 @@
         {
           path: "1/index.html",
           name: "Heart Particles",
-          needsClick: true,
-          hint: "Click when you feel ready to move on ✦",
+          showNavHint: true,
+          hint: "tap to continue",
         },
         {
           path: "2/index.html",
           name: "Physics Hearts",
-          needsClick: true,
-          hint: "Tap when your heart is full ♡",
+          showNavHint: true,
+          hint: "tap to continue",
         },
         {
           path: "3/index.html",
           name: "Blooming Flowers",
           isInteractive: true,
-          autoAdvanceDuration: 18000,
+          autoAdvanceDuration: 15000,
           transitionMessage: "Now you can make your own flowers ✿",
         },
         {
@@ -901,26 +899,12 @@
             iframe.style.opacity = "1";
             viewer.classList.add("active");
 
-            if (scene.isInteractive) {
-              console.log("Setting viewer as interactive");
-              viewer.classList.add("interactive");
-              // Force pointer events
-              viewer.style.pointerEvents = "all";
-              iframe.style.pointerEvents = "all";
-            } else if (scene.needsClick) {
-              viewer.classList.add("clickable");
-            }
-
-            if (scene.hint) {
+            // Show nav hint if needed
+            if (scene.showNavHint && scene.hint) {
               const navHint = document.getElementById("navHint");
               navHint.textContent = scene.hint;
               setTimeout(() => {
                 navHint.classList.add("show");
-              }, 3000);
-            }
-
-            if (!scene.autoAdvanceDuration && !scene.isFinalScene) {
-              setTimeout(() => {
                 canProgress = true;
               }, 3000);
             }
@@ -969,8 +953,7 @@
         setTimeout(() => {
           // Clear the old scene content before moving to next
           viewer.innerHTML = "";
-          viewer.classList.remove("active", "clickable", "interactive");
-          viewer.style.pointerEvents = "";
+          viewer.classList.remove("active");
 
           // Now move to next scene
           currentScene++;
@@ -1025,8 +1008,7 @@
 
         const viewer = document.getElementById("viewer");
         viewer.style.opacity = "1";
-        viewer.classList.remove("active", "clickable", "interactive");
-        viewer.style.pointerEvents = "";
+        viewer.classList.remove("active");
         document.getElementById("navHint").classList.remove("show");
 
         if (sceneTimeout) {
@@ -1042,7 +1024,7 @@
       function showClosingScene() {
         const viewer = document.getElementById("viewer");
         viewer.style.opacity = "0";
-        viewer.classList.remove("active", "clickable", "interactive");
+        viewer.classList.remove("active");
         document.getElementById("navHint").classList.remove("show");
         document.getElementById("finishBtn").classList.remove("show");
 
@@ -1067,7 +1049,7 @@
           const viewer = document.getElementById("viewer");
           viewer.style.opacity = "0";
           viewer.innerHTML = "";
-          viewer.classList.remove("active", "clickable", "interactive");
+          viewer.classList.remove("active");
 
           document.getElementById("finishBtn").classList.remove("show");
           document.getElementById("navHint").classList.remove("show");
@@ -1082,29 +1064,15 @@
           document.getElementById("message").textContent =
             welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
 
-          document.body.removeEventListener("click", handleSceneClick);
           document.body.addEventListener("click", handleInitialClick);
         }, 1000);
       }
 
-      function handleSceneClick(e) {
-        // Scene 4 is the final scene - don't allow click-through progression
-        if (currentScene === 3) {
-          console.log("Scene 4 click ignored - use finish button");
-          return;
-        }
-
+      function handleNavHintClick(e) {
+        e.stopPropagation();
         createWave(e);
 
         if (!canProgress) {
-          const waitMessages = [
-            "A little longer...",
-            "Almost there, hold on...",
-          ];
-          showFloatingMessage(
-            waitMessages[Math.floor(Math.random() * waitMessages.length)],
-            1200
-          );
           return;
         }
 
@@ -1136,15 +1104,11 @@
           }, 1500);
 
           document.body.removeEventListener("click", handleInitialClick);
-
-          setTimeout(() => {
-            document.body.addEventListener("click", handleSceneClick);
-          }, 2000);
         }
       }
 
       function handleFinishClick(e) {
-        e.stopPropagation(); // Prevent any other click handlers
+        e.stopPropagation();
         console.log("Finish button clicked");
         createWave(e);
         showFloatingMessage("Thank you for creating with me, Lulo ✿", 2000);
@@ -1160,6 +1124,11 @@
 
       // Start
       init();
+
+      // Setup nav hint click handler
+      document
+        .getElementById("navHint")
+        .addEventListener("click", handleNavHintClick);
 
       // Setup finish button
       document
